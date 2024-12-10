@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">Dashboard</h2>
+    
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Rooms</h5>
+                    <h2 class="card-text">{{ rooms|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Available Rooms</h5>
+                    <h2 class="card-text">{{ rooms|selectattr('status', 'equalto', 'available')|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Occupied Rooms</h5>
+                    <h2 class="card-text">{{ rooms|selectattr('status', 'equalto', 'occupied')|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Active Reservations</h5>
+                    <h2 class="card-text">{{ reservations|selectattr('status', 'equalto', 'active')|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Reservations -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent Reservations</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Guest Name</th>
+                                    <th>Room</th>
+                                    <th>Check In</th>
+                                    <th>Check Out</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reservation in reservations %}
+                                <tr>
+                                    <td>{{ reservation.guest_name }}</td>
+                                    <td>Room {{ reservation.room.room_number }}</td>
+                                    <td>{{ reservation.check_in.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ reservation.check_out.strftime('%Y-%m-%d') }}</td>
+                                    <td>
+                                        <span class="badge {% if reservation.status == 'active' %}bg-success{% elif reservation.status == 'completed' %}bg-primary{% else %}bg-danger{% endif %}">
+                                            {{ reservation.status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

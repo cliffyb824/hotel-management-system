@@ -1,0 +1,486 @@
+{% extends "base.html" %}
+
+{% block title %}Reservations{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Reservations</h2>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addReservationModal">
+            <i class="fas fa-plus"></i> New Reservation
+        </button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="reservationsTable" class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Guest Name</th>
+                            <th>Room</th>
+                            <th>Check In</th>
+                            <th>Check Out</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Reservation Modal -->
+<div class="modal fade" id="addReservationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">New Reservation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="reservationForm">
+                    <div class="mb-3">
+                        <label for="guestName" class="form-label">Guest Name</label>
+                        <input type="text" class="form-control" id="guestName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="roomId" class="form-label">Room</label>
+                        <select class="form-select" id="roomId" required>
+                            {% for room in rooms %}
+                            <option value="{{ room.id }}">Room {{ room.room_number }} ({{ room.room_type }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="checkIn" class="form-label">Check In Date</label>
+                        <input type="date" class="form-control" id="checkIn" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="checkOut" class="form-label">Check Out Date</label>
+                        <input type="date" class="form-control" id="checkOut" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveButton" onclick="saveReservation()">Save Reservation</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Guest Information Modal -->
+<div class="modal fade" id="guestInfoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Guest Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="guestInfoForm">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="guestEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Phone</label>
+                        <input type="tel" class="form-control" name="guestPhone" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" name="guestAddress" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">ID Type</label>
+                        <select class="form-control" name="idType" required>
+                            <option value="">Select ID Type</option>
+                            <option value="passport">Passport</option>
+                            <option value="drivers_license">Driver's License</option>
+                            <option value="national_id">National ID</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">ID Number</label>
+                        <input type="text" class="form-control" name="idNumber" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Special Requests</label>
+                        <textarea class="form-control" name="specialRequests"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Number of Guests</label>
+                        <input type="number" class="form-control" name="numberOfGuests" min="1" value="1" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitGuestInfo()">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let isEditing = false;
+let editingReservationId = null;
+let currentReservationId = null;
+
+function loadReservations() {
+    fetch('/api/reservations')
+    .then(response => response.json())
+    .then(data => {
+        const tbody = document.querySelector('#reservationsTable tbody');
+        tbody.innerHTML = '';
+        
+        data.forEach(reservation => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${reservation.guest_name}</td>
+                <td>Room ${reservation.room.room_number}</td>
+                <td>${new Date(reservation.check_in).toLocaleDateString()}</td>
+                <td>${new Date(reservation.check_out).toLocaleDateString()}</td>
+                <td>
+                    ${getStatusBadge(reservation.status)}
+                </td>
+                <td>
+                    ${getActionButtons(reservation)}
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    })
+    .catch(error => {
+        console.error('Error loading reservations:', error);
+        alert('Failed to load reservations');
+    });
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'reserved': '<span class="badge bg-primary">Reserved</span>',
+        'checked_in': '<span class="badge bg-success">Checked In</span>',
+        'checked_out': '<span class="badge bg-secondary">Checked Out</span>',
+        'cancelled': '<span class="badge bg-danger">Cancelled</span>'
+    };
+    return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+function getActionButtons(reservation) {
+    let buttons = '';
+    
+    if (reservation.status === 'reserved') {
+        buttons += `<button class="btn btn-sm btn-success me-1" onclick="showGuestInfoModal(${reservation.id})">
+            <i class="fas fa-check-in"></i> Check In
+        </button>`;
+    } else if (reservation.status === 'checked_in') {
+        buttons += `<button class="btn btn-sm btn-warning me-1" onclick="checkOut(${reservation.id})">
+            <i class="fas fa-check-out"></i> Check Out
+        </button>`;
+    }
+    
+    buttons += `<button class="btn btn-sm btn-info me-1" onclick="viewGuestDetails(${reservation.id})">
+        <i class="fas fa-user"></i> Guest Info
+    </button>`;
+    
+    buttons += `<button class="btn btn-sm btn-info me-1" onclick="editReservation(${reservation.id})">
+        <i class="fas fa-edit"></i> Edit
+    </button>`;
+    
+    if (reservation.status !== 'checked_out' && reservation.status !== 'cancelled') {
+        buttons += `<button class="btn btn-sm btn-danger" onclick="cancelReservation(${reservation.id})">
+            <i class="fas fa-times"></i> Cancel
+        </button>`;
+    }
+    
+    return buttons;
+}
+
+async function saveReservation() {
+    const reservationData = {
+        guestName: document.getElementById('guestName').value,
+        roomId: document.getElementById('roomId').value,
+        checkIn: document.getElementById('checkIn').value,
+        checkOut: document.getElementById('checkOut').value
+    };
+
+    try {
+        const url = isEditing 
+            ? `/api/reservations/${editingReservationId}`
+            : '/api/reservations';
+        const method = isEditing ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(reservationData)
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(isEditing ? 'Reservation updated successfully!' : 'Reservation added successfully!');
+            loadReservations();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error saving reservation: ' + error.message);
+    }
+}
+
+async function editReservation(reservationId) {
+    try {
+        const response = await fetch(`/api/reservations/${reservationId}`);
+        const reservation = await response.json();
+        
+        document.getElementById('guestName').value = reservation.guest_name;
+        document.getElementById('roomId').value = reservation.room_id;
+        document.getElementById('checkIn').value = reservation.check_in;
+        document.getElementById('checkOut').value = reservation.check_out;
+        
+        document.getElementById('modalTitle').textContent = 'Edit Reservation';
+        document.getElementById('saveButton').textContent = 'Update Reservation';
+        
+        isEditing = true;
+        editingReservationId = reservationId;
+        
+        const modal = new bootstrap.Modal(document.getElementById('addReservationModal'));
+        modal.show();
+    } catch (error) {
+        alert('Error loading reservation details: ' + error.message);
+    }
+}
+
+async function cancelReservation(reservationId) {
+    if (confirm('Are you sure you want to cancel this reservation?')) {
+        try {
+            const response = await fetch(`/api/reservations/${reservationId}/cancel`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('Reservation cancelled successfully!');
+                loadReservations();
+            } else {
+                alert('Error: ' + result.message);
+            }
+        } catch (error) {
+            alert('Error cancelling reservation: ' + error.message);
+        }
+    }
+}
+
+function showGuestInfoModal(reservationId) {
+    currentReservationId = reservationId;
+    const modal = new bootstrap.Modal(document.getElementById('guestInfoModal'));
+    modal.show();
+}
+
+function submitGuestInfo() {
+    const form = document.getElementById('guestInfoForm');
+    const formData = new FormData(form);
+    const reservation = {};
+    
+    for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+        reservation[key] = value;
+    }
+    
+    // First update the guest information
+    fetch(`/api/reservations/${currentReservationId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reservation)
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to update guest information');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // After successfully updating guest info, proceed with check-in
+        return fetch(`/api/reservations/${currentReservationId}/check-in`, {
+            method: 'POST'
+        });
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to check in');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        // If we get here, everything succeeded
+        bootstrap.Modal.getInstance(document.getElementById('guestInfoModal')).hide();
+        loadReservations();
+        alert('Check-in successful!');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(error.message || 'An error occurred during check-in');
+        // Reload to show current state
+        loadReservations();
+    });
+}
+
+function checkOut(reservationId) {
+    if (!confirm('Are you sure you want to check out this guest?')) {
+        return;
+    }
+    
+    fetch(`/api/reservations/${reservationId}/check-out`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            if (data.balance) {
+                alert(`Cannot check out: Outstanding balance of $${data.balance.toFixed(2)} must be paid first.`);
+            } else {
+                alert(data.error);
+            }
+        } else {
+            loadReservations();
+            alert('Check-out successful!');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred during check-out');
+    });
+}
+
+// Reset form when adding a new reservation
+document.querySelector('[data-bs-target="#addReservationModal"]').addEventListener('click', function() {
+    document.getElementById('reservationForm').reset();
+    document.getElementById('modalTitle').textContent = 'New Reservation';
+    document.getElementById('saveButton').textContent = 'Save Reservation';
+    isEditing = false;
+    editingReservationId = null;
+});
+
+// Set minimum date for check-in and check-out
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('checkIn').min = today;
+    document.getElementById('checkOut').min = today;
+});
+
+// Update check-out minimum date when check-in is selected
+document.getElementById('checkIn').addEventListener('change', function() {
+    document.getElementById('checkOut').min = this.value;
+    if (document.getElementById('checkOut').value < this.value) {
+        document.getElementById('checkOut').value = this.value;
+    }
+});
+
+// Load reservations when the page loads
+document.addEventListener('DOMContentLoaded', loadReservations);
+</script>
+<!-- Guest Details Modal -->
+<div class="modal fade" id="guestDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Guest Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Guest Name:</div>
+                    <div class="col-8" id="detailGuestName"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Email:</div>
+                    <div class="col-8" id="detailGuestEmail"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Phone:</div>
+                    <div class="col-8" id="detailGuestPhone"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Address:</div>
+                    <div class="col-8" id="detailGuestAddress"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">ID Type:</div>
+                    <div class="col-8" id="detailIdType"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">ID Number:</div>
+                    <div class="col-8" id="detailIdNumber"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Special Requests:</div>
+                    <div class="col-8" id="detailSpecialRequests"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Number of Guests:</div>
+                    <div class="col-8" id="detailNumberOfGuests"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Check-in Time:</div>
+                    <div class="col-8" id="detailCheckInTime"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Check-out Time:</div>
+                    <div class="col-8" id="detailCheckOutTime"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add this to your existing JavaScript
+function viewGuestDetails(reservationId) {
+    fetch(`/api/reservations/${reservationId}/details`)
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('detailGuestName').textContent = data.guest_name;
+        document.getElementById('detailGuestEmail').textContent = data.guest_email || 'Not provided';
+        document.getElementById('detailGuestPhone').textContent = data.guest_phone || 'Not provided';
+        document.getElementById('detailGuestAddress').textContent = data.guest_address || 'Not provided';
+        document.getElementById('detailIdType').textContent = data.id_type || 'Not provided';
+        document.getElementById('detailIdNumber').textContent = data.id_number || 'Not provided';
+        document.getElementById('detailSpecialRequests').textContent = data.special_requests || 'None';
+        document.getElementById('detailNumberOfGuests').textContent = data.number_of_guests || '1';
+        document.getElementById('detailCheckInTime').textContent = data.actual_check_in || 'Not checked in';
+        document.getElementById('detailCheckOutTime').textContent = data.actual_check_out || 'Not checked out';
+        
+        const modal = new bootstrap.Modal(document.getElementById('guestDetailsModal'));
+        modal.show();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to load guest details');
+    });
+}
+</script>
+{% endblock %}

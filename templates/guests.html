@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Guests{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Guest Directory</h2>
+        <div class="input-group w-25">
+            <input type="text" class="form-control" id="searchInput" placeholder="Search guests...">
+            <button class="btn btn-outline-secondary" type="button" onclick="searchGuests()">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="guestsTable" class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Guest Name</th>
+                            <th>Contact Info</th>
+                            <th>Room</th>
+                            <th>Stay Period</th>
+                            <th>Status</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Guest Details Modal -->
+<div class="modal fade" id="guestDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Guest Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Guest Name:</div>
+                    <div class="col-8" id="detailGuestName"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Email:</div>
+                    <div class="col-8" id="detailGuestEmail"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Phone:</div>
+                    <div class="col-8" id="detailGuestPhone"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Address:</div>
+                    <div class="col-8" id="detailGuestAddress"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">ID Type:</div>
+                    <div class="col-8" id="detailIdType"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">ID Number:</div>
+                    <div class="col-8" id="detailIdNumber"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Special Requests:</div>
+                    <div class="col-8" id="detailSpecialRequests"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Number of Guests:</div>
+                    <div class="col-8" id="detailNumberOfGuests"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Room Number:</div>
+                    <div class="col-8" id="detailRoomNumber"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Check-in:</div>
+                    <div class="col-8" id="detailCheckIn"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Check-out:</div>
+                    <div class="col-8" id="detailCheckOut"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadGuests() {
+    fetch('/api/guests')
+    .then(response => response.json())
+    .then(data => {
+        const tbody = document.querySelector('#guestsTable tbody');
+        tbody.innerHTML = '';
+        
+        data.forEach(guest => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${guest.guest_name}</td>
+                <td>
+                    <div><i class="fas fa-envelope"></i> ${guest.guest_email || 'N/A'}</div>
+                    <div><i class="fas fa-phone"></i> ${guest.guest_phone || 'N/A'}</div>
+                </td>
+                <td>${guest.room_number ? 'Room ' + guest.room_number : 'N/A'}</td>
+                <td>
+                    <div>Check-in: ${new Date(guest.check_in).toLocaleDateString()}</div>
+                    <div>Check-out: ${new Date(guest.check_out).toLocaleDateString()}</div>
+                </td>
+                <td>${getStatusBadge(guest.status)}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="viewGuestDetails(${guest.id})">
+                        <i class="fas fa-info-circle"></i> View Details
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    })
+    .catch(error => {
+        console.error('Error loading guests:', error);
+        alert('Failed to load guests');
+    });
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'reserved': '<span class="badge bg-primary">Reserved</span>',
+        'checked_in': '<span class="badge bg-success">Checked In</span>',
+        'checked_out': '<span class="badge bg-secondary">Checked Out</span>',
+        'cancelled': '<span class="badge bg-danger">Cancelled</span>'
+    };
+    return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+}
+
+function viewGuestDetails(guestId) {
+    fetch(`/api/reservations/${guestId}/details`)
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('detailGuestName').textContent = data.guest_name;
+        document.getElementById('detailGuestEmail').textContent = data.guest_email || 'Not provided';
+        document.getElementById('detailGuestPhone').textContent = data.guest_phone || 'Not provided';
+        document.getElementById('detailGuestAddress').textContent = data.guest_address || 'Not provided';
+        document.getElementById('detailIdType').textContent = data.id_type || 'Not provided';
+        document.getElementById('detailIdNumber').textContent = data.id_number || 'Not provided';
+        document.getElementById('detailSpecialRequests').textContent = data.special_requests || 'None';
+        document.getElementById('detailNumberOfGuests').textContent = data.number_of_guests || '1';
+        document.getElementById('detailRoomNumber').textContent = data.room ? 'Room ' + data.room.number : 'Not assigned';
+        document.getElementById('detailCheckIn').textContent = new Date(data.check_in).toLocaleDateString();
+        document.getElementById('detailCheckOut').textContent = new Date(data.check_out).toLocaleDateString();
+        
+        const modal = new bootstrap.Modal(document.getElementById('guestDetailsModal'));
+        modal.show();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to load guest details');
+    });
+}
+
+function searchGuests() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#guestsTable tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+// Load guests when the page loads
+document.addEventListener('DOMContentLoaded', loadGuests);
+
+// Add search on enter key press
+document.getElementById('searchInput').addEventListener('keyup', function(event) {
+    if (event.key === 'Enter') {
+        searchGuests();
+    }
+});
+</script>
+{% endblock %}
