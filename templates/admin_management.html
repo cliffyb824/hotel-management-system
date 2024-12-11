@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Admin Management</h2>
+    
+    <!-- Add New Admin Button -->
+    <button type="button" class="btn btn-primary mb-4" data-bs-toggle="modal" data-bs-target="#addAdminModal">
+        <i class="fas fa-plus"></i> Add New Admin
+    </button>
+
+    <!-- Admin List -->
+    <div class="card">
+        <div class="card-header">
+            <h4>Admin List</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Created Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for admin in admins %}
+                        <tr>
+                            <td>
+                                <span class="admin-username">{{ admin.username }}</span>
+                                <input type="text" class="form-control edit-username" style="display: none;" value="{{ admin.username }}">
+                            </td>
+                            <td>{{ admin.created_at.strftime('%Y-%m-%d %H:%M:%S') if admin.created_at else 'N/A' }}</td>
+                            <td>
+                                {% if admin.username != 'admin' %}
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-primary edit-btn" onclick="toggleEdit(this)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-success save-btn" style="display: none;" onclick="saveUsername('{{ admin.id }}', this)">
+                                        <i class="fas fa-save"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-warning" onclick="resetPassword('{{ admin.id }}')">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteAdmin('{{ admin.id }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">Default Admin</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Admin Modal -->
+<div class="modal fade" id="addAdminModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Admin</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAdminForm">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="password" name="password" required>
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('password')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="addAdmin()">Add Admin</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this admin?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reset Password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="resetPasswordForm">
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">New Password</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="newPassword" name="newPassword" required>
+                            <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('newPassword')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" id="confirmReset">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedAdminId = null;
+
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const icon = event.currentTarget.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+}
+
+function toggleEdit(btn) {
+    const row = btn.closest('tr');
+    const usernameSpan = row.querySelector('.admin-username');
+    const usernameInput = row.querySelector('.edit-username');
+    const editBtn = row.querySelector('.edit-btn');
+    const saveBtn = row.querySelector('.save-btn');
+
+    usernameSpan.style.display = 'none';
+    usernameInput.style.display = 'block';
+    editBtn.style.display = 'none';
+    saveBtn.style.display = 'inline-block';
+}
+
+function saveUsername(adminId, btn) {
+    const row = btn.closest('tr');
+    const usernameInput = row.querySelector('.edit-username');
+    const newUsername = usernameInput.value;
+
+    $.ajax({
+        url: '/admin/update/' + adminId,
+        method: 'POST',
+        data: { username: newUsername },
+        success: function(response) {
+            if (response.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + response.message);
+            }
+        },
+        error: function() {
+            alert('Error updating username');
+        }
+    });
+}
+
+function addAdmin() {
+    const username = $('#username').val();
+    const password = $('#password').val();
+
+    if (!username || !password) {
+        alert('Please fill in all fields');
+        return;
+    }
+
+    $.ajax({
+        url: '/admin/add',
+        method: 'POST',
+        data: {
+            username: username,
+            password: password
+        },
+        success: function(response) {
+            if (response.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + response.message);
+            }
+        },
+        error: function() {
+            alert('Error adding admin');
+        }
+    });
+}
+
+function deleteAdmin(adminId) {
+    selectedAdminId = adminId;
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+
+function resetPassword(adminId) {
+    selectedAdminId = adminId;
+    const resetModal = new bootstrap.Modal(document.getElementById('resetPasswordModal'));
+    resetModal.show();
+}
+
+$(document).ready(function() {
+    $('#confirmDelete').click(function() {
+        if (selectedAdminId) {
+            $.ajax({
+                url: '/admin/delete/' + selectedAdminId,
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + response.message);
+                    }
+                },
+                error: function() {
+                    alert('Error deleting admin');
+                }
+            });
+        }
+        const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+        deleteModal.hide();
+    });
+
+    $('#confirmReset').click(function() {
+        if (selectedAdminId) {
+            const newPassword = $('#newPassword').val();
+            if (!newPassword) {
+                alert('Please enter a new password');
+                return;
+            }
+
+            $.ajax({
+                url: '/admin/reset-password/' + selectedAdminId,
+                method: 'POST',
+                data: { password: newPassword },
+                success: function(response) {
+                    if (response.success) {
+                        alert('Password reset successfully');
+                        const resetModal = bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal'));
+                        resetModal.hide();
+                        $('#newPassword').val('');
+                    } else {
+                        alert('Error: ' + response.message);
+                    }
+                },
+                error: function() {
+                    alert('Error resetting password');
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,173 +1,107 @@
 {% extends "base.html" %}
 
-{% block title %}Billing{% endblock %}
+{% block title %}Billing Management{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2>Billing Management</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Billing Management</h2>
+        <div class="input-group w-25">
+            <input type="text" class="form-control" id="searchInput" placeholder="Search bills...">
+            <button class="btn btn-outline-secondary" type="button" onclick="searchBills()">
+                <i class="fas fa-search"></i>
+            </button>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Active Reservations</h5>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Guest Name</th>
-                                    <th>Room</th>
-                                    <th>Check In</th>
-                                    <th>Check Out</th>
-                                    <th>Total Amount</th>
-                                    <th>Amount Paid</th>
-                                    <th>Balance</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for reservation in reservations %}
-                                {% if reservation.status == 'active' %}
-                                <tr>
-                                    <td>{{ reservation.guest_name }}</td>
-                                    <td>Room {{ reservation.room.room_number }}</td>
-                                    <td>{{ reservation.check_in.strftime('%Y-%m-%d') }}</td>
-                                    <td>{{ reservation.check_out.strftime('%Y-%m-%d') }}</td>
-                                    <td>${{ "%.2f"|format(reservation.total_amount) }}</td>
-                                    <td>${{ "%.2f"|format(reservation.payments|sum(attribute='amount')) }}</td>
-                                    <td>${{ "%.2f"|format(reservation.total_amount - reservation.payments|sum(attribute='amount')) }}</td>
-                                    <td>
-                                        <button class="btn btn-primary btn-sm" onclick="viewBill({{ reservation.id }})">
-                                            <i class="fas fa-file-invoice-dollar"></i> View Bill
-                                        </button>
-                                        <button class="btn btn-success btn-sm" onclick="addPayment({{ reservation.id }})">
-                                            <i class="fas fa-plus"></i> Add Payment
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endif %}
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="billingTable" class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Guest Name</th>
+                            <th>Room Info</th>
+                            <th>Stay Period</th>
+                            <th>Source</th>
+                            <th>Total Amount</th>
+                            <th>Net Amount</th>
+                            <th>Status</th>
+                            <th>Payment Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
-<!-- View Bill Modal -->
-<div class="modal fade" id="viewBillModal" tabindex="-1">
+<!-- Billing Details Modal -->
+<div class="modal fade" id="billingDetailsModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Bill Details</h5>
+                <h5 class="modal-title">Billing Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="row mb-4">
+                <div class="row mb-3">
                     <div class="col-md-6">
-                        <h6>Guest Information</h6>
-                        <p class="mb-1">Guest Name: <span id="billGuestName"></span></p>
-                        <p class="mb-1">Room Number: <span id="billRoomNumber"></span></p>
-                        <p class="mb-1">Room Type: <span id="billRoomType"></span></p>
+                        <h6 class="fw-bold">Guest Information</h6>
+                        <p class="mb-1">Guest Name: <span id="detailGuestName"></span></p>
+                        <p class="mb-1">Room Number: <span id="detailRoomNumber"></span></p>
+                        <p class="mb-1">Room Type: <span id="detailRoomType"></span></p>
+                        <p class="mb-1">Booking Source: <span id="detailBookingSource"></span></p>
                     </div>
                     <div class="col-md-6">
-                        <h6>Stay Information</h6>
-                        <p class="mb-1">Check In: <span id="billCheckIn"></span></p>
-                        <p class="mb-1">Check Out: <span id="billCheckOut"></span></p>
-                        <p class="mb-1">Number of Days: <span id="billDays"></span></p>
+                        <h6 class="fw-bold">Stay Information</h6>
+                        <p class="mb-1">Check-in: <span id="detailCheckIn"></span></p>
+                        <p class="mb-1">Check-out: <span id="detailCheckOut"></span></p>
+                        <p class="mb-1">Number of Nights: <span id="detailNights"></span></p>
                     </div>
                 </div>
-                <div class="row mb-4">
+                <div class="row mb-3">
                     <div class="col-12">
-                        <h6>Bill Summary</h6>
-                        <table class="table">
-                            <tr>
-                                <td>Daily Rate:</td>
-                                <td class="text-end">$<span id="billDailyRate"></span></td>
-                            </tr>
-                            <tr>
-                                <td>Total Amount:</td>
-                                <td class="text-end">$<span id="billTotalAmount"></span></td>
-                            </tr>
-                            <tr>
-                                <td>Amount Paid:</td>
-                                <td class="text-end">$<span id="billAmountPaid"></span></td>
-                            </tr>
-                            <tr class="table-primary">
-                                <td><strong>Balance:</strong></td>
-                                <td class="text-end"><strong>$<span id="billBalance"></span></strong></td>
-                            </tr>
+                        <h6 class="fw-bold">Billing Breakdown</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td>Room Rate (per night)</td>
+                                    <td class="text-end">$<span id="detailRoomRate"></span></td>
+                                </tr>
+                                <tr>
+                                    <td>Room Total (<span id="detailNightsCount"></span> nights)</td>
+                                    <td class="text-end">$<span id="detailRoomTotal"></span></td>
+                                </tr>
+                                <tr id="commissionRow" style="display: none;">
+                                    <td>OTA Commission</td>
+                                    <td class="text-end">$<span id="detailCommission"></span></td>
+                                </tr>
+                                <tr class="fw-bold">
+                                    <td>Total Amount</td>
+                                    <td class="text-end">$<span id="detailTotalAmount"></span></td>
+                                </tr>
+                                <tr id="netAmountRow" style="display: none;">
+                                    <td>Net Amount (After Commission)</td>
+                                    <td class="text-end">$<span id="detailNetAmount"></span></td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-12">
-                        <h6>Payment History</h6>
-                        <div class="table-responsive">
-                            <table class="table table-sm" id="paymentsTable">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Amount</th>
-                                        <th>Method</th>
-                                        <th>Transaction ID</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+                        <h6 class="fw-bold">Payment Status</h6>
+                        <p class="mb-1">Status: <span id="detailPaymentStatus" class="badge"></span></p>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" onclick="printBill()">Print Bill</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Add Payment Modal -->
-<div class="modal fade" id="addPaymentModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add Payment</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="paymentForm">
-                    <input type="hidden" id="paymentReservationId">
-                    <div class="mb-3">
-                        <label for="paymentAmount" class="form-label">Amount</label>
-                        <input type="number" class="form-control" id="paymentAmount" step="0.01" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="paymentMethod" class="form-label">Payment Method</label>
-                        <select class="form-select" id="paymentMethod" required>
-                            <option value="cash">Cash</option>
-                            <option value="credit_card">Credit Card</option>
-                            <option value="debit_card">Debit Card</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="paymentNotes" class="form-label">Notes</label>
-                        <textarea class="form-control" id="paymentNotes" rows="2"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" onclick="submitPayment()">Submit Payment</button>
+                <button type="button" class="btn btn-success" id="recordPaymentBtn" onclick="recordPayment()">Record Payment</button>
             </div>
         </div>
     </div>
@@ -176,104 +110,141 @@
 
 {% block scripts %}
 <script>
-let currentReservationId = null;
-
-async function viewBill(reservationId) {
-    try {
-        currentReservationId = reservationId;
+function loadBillings() {
+    fetch('/api/billing')
+    .then(response => response.json())
+    .then(data => {
+        const tbody = document.querySelector('#billingTable tbody');
+        tbody.innerHTML = '';
         
-        // Get bill calculation
-        const billResponse = await fetch(`/api/reservations/${reservationId}/calculate-bill`);
-        const billData = await billResponse.json();
-        
-        if (!billData.success) {
-            throw new Error(billData.message);
-        }
-        
-        // Get reservation details
-        const reservationResponse = await fetch(`/api/reservations/${reservationId}`);
-        const reservationData = await reservationResponse.json();
-        
-        // Get payment history
-        const paymentsResponse = await fetch(`/api/reservations/${reservationId}/payments`);
-        const paymentsData = await paymentsResponse.json();
-        
-        // Update modal with bill information
-        document.getElementById('billGuestName').textContent = reservationData.guestName;
-        document.getElementById('billRoomNumber').textContent = `Room ${reservationData.roomNumber}`;
-        document.getElementById('billRoomType').textContent = reservationData.roomType;
-        document.getElementById('billCheckIn').textContent = reservationData.checkIn;
-        document.getElementById('billCheckOut').textContent = reservationData.checkOut;
-        document.getElementById('billDays').textContent = billData.days;
-        document.getElementById('billDailyRate').textContent = billData.daily_rate.toFixed(2);
-        document.getElementById('billTotalAmount').textContent = billData.total_amount.toFixed(2);
-        document.getElementById('billAmountPaid').textContent = billData.amount_paid.toFixed(2);
-        document.getElementById('billBalance').textContent = billData.balance.toFixed(2);
-        
-        // Update payments table
-        const paymentsTableBody = document.querySelector('#paymentsTable tbody');
-        paymentsTableBody.innerHTML = '';
-        
-        paymentsData.payments.forEach(payment => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${payment.payment_date}</td>
-                <td>$${payment.amount.toFixed(2)}</td>
-                <td>${payment.payment_method}</td>
-                <td>${payment.transaction_id}</td>
-                <td><span class="badge bg-${payment.status === 'completed' ? 'success' : 'warning'}">${payment.status}</span></td>
+        data.forEach(bill => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${bill.guest_name}</td>
+                <td>
+                    <div>Room ${bill.room_number}</div>
+                    <div class="text-muted">${bill.room_type}</div>
+                </td>
+                <td>
+                    <div>${new Date(bill.check_in).toLocaleDateString()}</div>
+                    <div>${new Date(bill.check_out).toLocaleDateString()}</div>
+                </td>
+                <td>${getSourceBadge(bill.booking_source)}</td>
+                <td>$${bill.total_amount || '0'}</td>
+                <td>${bill.net_amount ? '$' + bill.net_amount : 'N/A'}</td>
+                <td>${getStatusBadge(bill.status)}</td>
+                <td>${getPaymentStatusBadge(bill.payment_status)}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="viewBillingDetails(${bill.id})">
+                        <i class="fas fa-file-invoice-dollar"></i> View Details
+                    </button>
+                </td>
             `;
-            paymentsTableBody.appendChild(row);
+            tbody.appendChild(tr);
         });
-        
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('viewBillModal'));
-        modal.show();
-    } catch (error) {
-        alert('Error loading bill details: ' + error.message);
-    }
+    })
+    .catch(error => {
+        console.error('Error loading billings:', error);
+        alert('Failed to load billing information');
+    });
 }
 
-function addPayment(reservationId) {
-    currentReservationId = reservationId;
-    document.getElementById('paymentReservationId').value = reservationId;
-    document.getElementById('paymentForm').reset();
-    
-    const modal = new bootstrap.Modal(document.getElementById('addPaymentModal'));
-    modal.show();
-}
-
-async function submitPayment() {
-    const paymentData = {
-        amount: document.getElementById('paymentAmount').value,
-        paymentMethod: document.getElementById('paymentMethod').value,
-        notes: document.getElementById('paymentNotes').value
+function getStatusBadge(status) {
+    const badges = {
+        'reserved': '<span class="badge bg-primary">Reserved</span>',
+        'checked_in': '<span class="badge bg-success">Checked In</span>',
+        'checked_out': '<span class="badge bg-secondary">Checked Out</span>',
+        'cancelled': '<span class="badge bg-danger">Cancelled</span>'
     };
-    
-    try {
-        const response = await fetch(`/api/reservations/${currentReservationId}/payments`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(paymentData)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            alert('Payment recorded successfully!');
-            location.reload();
-        } else {
-            alert('Error: ' + result.message);
-        }
-    } catch (error) {
-        alert('Error submitting payment: ' + error.message);
-    }
+    return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
 }
 
-function printBill() {
-    window.print();
+function getPaymentStatusBadge(status) {
+    return status === 'Paid' 
+        ? '<span class="badge bg-success">Paid</span>'
+        : '<span class="badge bg-warning text-dark">Pending</span>';
 }
+
+function getSourceBadge(source) {
+    const badges = {
+        'direct': '<span class="badge bg-primary">Direct</span>',
+        'booking.com': '<span class="badge" style="background-color: #003580">Booking.com</span>',
+        'expedia': '<span class="badge" style="background-color: #00355F">Expedia</span>'
+    };
+    return badges[source] || `<span class="badge bg-secondary">${source}</span>`;
+}
+
+function viewBillingDetails(billId) {
+    fetch(`/api/billing/${billId}/details`)
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('detailGuestName').textContent = data.guest_name;
+        document.getElementById('detailRoomNumber').textContent = data.room_number;
+        document.getElementById('detailRoomType').textContent = data.room_type;
+        document.getElementById('detailCheckIn').textContent = new Date(data.check_in).toLocaleDateString();
+        document.getElementById('detailCheckOut').textContent = new Date(data.check_out).toLocaleDateString();
+        document.getElementById('detailNights').textContent = data.nights;
+        document.getElementById('detailNightsCount').textContent = data.nights;
+        document.getElementById('detailRoomRate').textContent = data.room_rate;
+        document.getElementById('detailRoomTotal').textContent = data.room_total;
+        document.getElementById('detailTotalAmount').textContent = data.total_amount || data.room_total;
+        document.getElementById('detailCommission').textContent = data.commission;
+        document.getElementById('detailNetAmount').textContent = data.net_amount;
+        document.getElementById('detailBookingSource').textContent = data.booking_source;
+        
+        const commissionRow = document.getElementById('commissionRow');
+        const netAmountRow = document.getElementById('netAmountRow');
+        if (data.commission) {
+            commissionRow.style.display = '';
+            netAmountRow.style.display = '';
+        } else {
+            commissionRow.style.display = 'none';
+            netAmountRow.style.display = 'none';
+        }
+        
+        const paymentStatusSpan = document.getElementById('detailPaymentStatus');
+        if (data.payment_status === 'Paid') {
+            paymentStatusSpan.className = 'badge bg-success';
+            paymentStatusSpan.textContent = 'Paid';
+            document.getElementById('recordPaymentBtn').style.display = 'none';
+        } else {
+            paymentStatusSpan.className = 'badge bg-warning text-dark';
+            paymentStatusSpan.textContent = 'Pending';
+            document.getElementById('recordPaymentBtn').style.display = 'block';
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('billingDetailsModal'));
+        modal.show();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to load billing details');
+    });
+}
+
+function searchBills() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const rows = document.querySelectorAll('#billingTable tbody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function recordPayment() {
+    // TODO: Implement payment recording functionality
+    alert('Payment recording functionality will be implemented soon.');
+}
+
+// Load billings when the page loads
+document.addEventListener('DOMContentLoaded', loadBillings);
+
+// Add search on enter key press
+document.getElementById('searchInput').addEventListener('keyup', function(event) {
+    if (event.key === 'Enter') {
+        searchBills();
+    }
+});
 </script>
 {% endblock %}

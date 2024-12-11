@@ -27,39 +27,78 @@
             font-size: 1.5rem;
             font-weight: bold;
         }
+        .nav-item {
+            list-style: none;
+        }
     </style>
+    {% block head %}{% endblock %}
 </head>
 <body>
     <div class="container-fluid">
         <div class="row">
             {% if current_user.is_authenticated %}
+            <!-- Sidebar for authenticated users -->
             <div class="col-md-2 sidebar p-0">
                 <div class="p-3">
                     <h5 class="text-light">Hotel Management</h5>
                 </div>
                 <nav>
-                    <a href="{{ url_for('dashboard') }}"><i class="fas fa-tachometer-alt me-2"></i> Dashboard</a>
-                    <a href="{{ url_for('rooms') }}"><i class="fas fa-bed me-2"></i> Rooms</a>
-                    <a href="{{ url_for('reservations') }}"><i class="fas fa-calendar-alt me-2"></i> Reservations</a>
-                    <a href="{{ url_for('billing') }}"><i class="fas fa-file-invoice-dollar me-2"></i> Billing</a>
-                    <a href="{{ url_for('guests') }}"><i class="fas fa-users me-2"></i> Guests</a>
-                    <a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt me-2"></i> Logout</a>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('dashboard') }}">
+                                <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('rooms') }}">
+                                <i class="fas fa-bed me-2"></i> Rooms
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('reservations') }}">
+                                <i class="fas fa-calendar-alt me-2"></i> Reservations
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('guests') }}">
+                                <i class="fas fa-users me-2"></i> Guests
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('billing') }}">
+                                <i class="fas fa-file-invoice-dollar me-2"></i> Billing
+                            </a>
+                        </li>
+                        {% if current_user.is_admin %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_management') }}">
+                                <i class="fas fa-user-shield me-2"></i> Admin
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt me-2"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
                 </nav>
             </div>
             <div class="col-md-10">
             {% else %}
+            <!-- No sidebar for unauthenticated users -->
             <div class="col-12">
             {% endif %}
-                <main class="content">
+                <div class="content">
                     {% with messages = get_flashed_messages() %}
                         {% if messages %}
                             {% for message in messages %}
-                                <div class="alert alert-info">{{ message }}</div>
+                            <div class="alert alert-info">{{ message }}</div>
                             {% endfor %}
                         {% endif %}
                     {% endwith %}
                     {% block content %}{% endblock %}
-                </main>
+                </div>
             </div>
         </div>
     </div>

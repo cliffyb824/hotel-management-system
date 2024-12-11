@@ -2,32 +2,78 @@
 
 {% block title %}Reservations{% endblock %}
 
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script src="{{ url_for('static', filename='js/calendar.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Reservations</h2>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addReservationModal">
-            <i class="fas fa-plus"></i> New Reservation
-        </button>
+    <div class="row">
+        <!-- Calendar View -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Room Availability Calendar</h3>
+                </div>
+                <div class="card-body">
+                    <div id="room-calendar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Reservation List -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Recent Reservations</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Room</th>
+                                    <th>Guest</th>
+                                    <th>Check-in</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reservation in reservations %}
+                                <tr>
+                                    <td>{{ reservation.room.room_number }}</td>
+                                    <td>{{ reservation.guest_name }}</td>
+                                    <td>{{ reservation.check_in.strftime('%Y-%m-%d') }}</td>
+                                    <td><span class="badge bg-{{ reservation.status_color }}">{{ reservation.status }}</span></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-info" onclick="showReservationDetails('{{ reservation.id }}')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
 
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table id="reservationsTable" class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Guest Name</th>
-                            <th>Room</th>
-                            <th>Check In</th>
-                            <th>Check Out</th>
-                            <th>Status</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                </table>
+<!-- Reservation Details Modal -->
+<div class="modal fade" id="reservationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reservation Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="modalReservationDetails"></div>
             </div>
         </div>
     </div>
@@ -121,6 +167,63 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" onclick="submitGuestInfo()">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Guest Details Modal -->
+<div class="modal fade" id="guestDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Guest Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Guest Name:</div>
+                    <div class="col-8" id="detailGuestName"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Email:</div>
+                    <div class="col-8" id="detailGuestEmail"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Phone:</div>
+                    <div class="col-8" id="detailGuestPhone"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Address:</div>
+                    <div class="col-8" id="detailGuestAddress"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">ID Type:</div>
+                    <div class="col-8" id="detailIdType"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">ID Number:</div>
+                    <div class="col-8" id="detailIdNumber"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Special Requests:</div>
+                    <div class="col-8" id="detailSpecialRequests"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Number of Guests:</div>
+                    <div class="col-8" id="detailNumberOfGuests"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Check-in Time:</div>
+                    <div class="col-8" id="detailCheckInTime"></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 fw-bold">Check-out Time:</div>
+                    <div class="col-8" id="detailCheckOutTime"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -400,62 +503,6 @@ document.getElementById('checkIn').addEventListener('change', function() {
 // Load reservations when the page loads
 document.addEventListener('DOMContentLoaded', loadReservations);
 </script>
-<!-- Guest Details Modal -->
-<div class="modal fade" id="guestDetailsModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Guest Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">Guest Name:</div>
-                    <div class="col-8" id="detailGuestName"></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">Email:</div>
-                    <div class="col-8" id="detailGuestEmail"></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">Phone:</div>
-                    <div class="col-8" id="detailGuestPhone"></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">Address:</div>
-                    <div class="col-8" id="detailGuestAddress"></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">ID Type:</div>
-                    <div class="col-8" id="detailIdType"></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">ID Number:</div>
-                    <div class="col-8" id="detailIdNumber"></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">Special Requests:</div>
-                    <div class="col-8" id="detailSpecialRequests"></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">Number of Guests:</div>
-                    <div class="col-8" id="detailNumberOfGuests"></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">Check-in Time:</div>
-                    <div class="col-8" id="detailCheckInTime"></div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-4 fw-bold">Check-out Time:</div>
-                    <div class="col-8" id="detailCheckOutTime"></div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script>
 // Add this to your existing JavaScript
